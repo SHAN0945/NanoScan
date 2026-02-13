@@ -62,7 +62,7 @@ const LoginPage = () => {
 
         <div className="mt-8 text-center">
           <p className="text-sm text-slate-500">
-            Don't have an account? <a href="#" className="text-cyan-400 hover:underline">Request access</a>
+            Don't have an account? <a href="/signup" className="text-cyan-400 hover:underline">Request access</a>
           </p>
         </div>
       </div>
