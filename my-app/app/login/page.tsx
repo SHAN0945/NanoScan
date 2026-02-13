@@ -1,73 +1,128 @@
-'use client'
+"use client";
 
-import React, { useState } from 'react';
-import Head from 'next/head';
+import { signIn, signOut, useSession } from "next-auth/react";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-const LoginPage = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+export default function LoginPage() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Logic for authentication goes here
-    console.log("Logging in with:", { email, password });
-  };
+  // If user is already logged in, send them to demo
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.push("/dashboard");
+    }
+  }, [status, router]);
+
+  if (status === "loading") {
+    return (
+      <div style={{ padding: 24 }}>
+        <h2>Loading...</h2>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-      <Head>
-        <title>Login | NanoScan</title>
-      </Head>
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "grid",
+        placeItems: "center",
+        background: "#0b1220",
+        color: "white",
+        padding: 24,
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 420,
+          border: "1px solid #1e293b",
+          borderRadius: 16,
+          padding: 24,
+          background: "#0f172a",
+        }}
+      >
+        <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 8 }}>
+          NanoScan
+        </h1>
+        <p style={{ color: "#94a3b8", marginBottom: 20 }}>
+          Sign in to access the demo dashboard.
+        </p>
 
-      <div className="w-full max-w-md bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl">
-        <div className="text-center mb-10">
-          <h1 className="text-3xl font-bold text-white tracking-tight">
-            Nano<span className="text-cyan-500">Scan</span>
-          </h1>
-          <p className="text-slate-400 mt-2">Sign in to access the inspection dashboard</p>
-        </div>
+        {!session ? (
+          <>
+            <button
+              onClick={() => signIn("google", { callbackUrl: "/demo" })}
+              style={{
+                width: "100%",
+                padding: "12px 14px",
+                borderRadius: 12,
+                border: "1px solid #334155",
+                background: "white",
+                color: "#0b1220",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              Continue with Google
+            </button>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Email Address</label>
-            <input 
-              type="email" 
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50 transition"
-              placeholder="name@company.com"
-            />
-          </div>
+            <p style={{ marginTop: 14, fontSize: 12, color: "#64748b" }}>
+              Only authenticated users can view precomputed AI outputs.
+            </p>
+          </>
+        ) : (
+          <>
+            <div
+              style={{
+                padding: 12,
+                borderRadius: 12,
+                background: "#0b1220",
+                border: "1px solid #1e293b",
+                marginBottom: 12,
+              }}
+            >
+              <div style={{ fontSize: 13, color: "#94a3b8" }}>Signed in as</div>
+              <div style={{ fontWeight: 700 }}>{session.user?.email}</div>
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Password</label>
-            <input 
-              type="password" 
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50 transition"
-              placeholder="••••••••"
-            />
-          </div>
+            <button
+              onClick={() => router.push("/demo")}
+              style={{
+                width: "100%",
+                padding: "12px 14px",
+                borderRadius: 12,
+                border: "1px solid #334155",
+                background: "#22c55e",
+                color: "#052e14",
+                fontWeight: 800,
+                cursor: "pointer",
+                marginBottom: 10,
+              }}
+            >
+              Go to Demo Dashboard
+            </button>
 
-          <button 
-            type="submit"
-            className="w-full py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold rounded-lg shadow-lg shadow-cyan-900/20 transition duration-300"
-          >
-            Sign In
-          </button>
-        </form>
-
-        <div className="mt-8 text-center">
-          <p className="text-sm text-slate-500">
-            Don't have an account? <a href="/signup" className="text-cyan-400 hover:underline">Request access</a>
-          </p>
-        </div>
+            <button
+              onClick={() => signOut({ callbackUrl: "/login" })}
+              style={{
+                width: "100%",
+                padding: "12px 14px",
+                borderRadius: 12,
+                border: "1px solid #334155",
+                background: "transparent",
+                color: "white",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              Sign out
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
-};
-
-export default LoginPage;
+}
