@@ -54,7 +54,7 @@ export default function LoginPage() {
         {!session ? (
           <>
             <button
-              onClick={() => signIn("google", { callbackUrl: "/demo" })}
+              onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
               style={{
                 width: "100%",
                 padding: "12px 14px",
