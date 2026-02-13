@@ -1,0 +1,32 @@
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@layer components {
+  .danger-pulse {
+    animation: danger-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  @keyframes danger-pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: .5;
+    }
+  }
+
+  .sos-button {
+    background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+    box-shadow: 0 10px 25px rgba(220, 38, 38, 0.4);
+    transition: all 0.3s ease;
+  }
+
+  .sos-button:active {
+    transform: scale(0.95);
+    box-shadow: 0 5px 15px rgba(220, 38, 38, 0.6);
+  }
+}
