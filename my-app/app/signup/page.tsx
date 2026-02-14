@@ -159,7 +159,7 @@ export default function SignupPage() {
                 </div>
                 
                 <div style={styles.inputStack}>
-                  <label style={styles.label}>NETWORK_EMAIL</label>
+                  <label style={styles.label}>NETWORK_EMAIL_ID</label>
                   <input name="email" type="email" value={formData.email} onChange={handleChange} style={styles.input} placeholder="admin@nanoscan.ai" required />
                 </div>
 

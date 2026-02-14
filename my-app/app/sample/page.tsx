@@ -62,7 +62,7 @@ export default function UploadPage() {
     setData(null);
 
     try {
-      const res = await fetch("/api/demo-upload", {
+      const res = await fetch("https://huggingface.co/spaces/tushardudeja01/pcb-defect-detection", {
         method: "POST",
         cache: "no-store",
       });

@@ -14,6 +14,16 @@ type DemoResult = {
   confidence: number;
 };
 
+type RepairAdvice = {
+  repairable: boolean;
+  worthRepairing: boolean;
+  estimatedCostINR: number;
+  estimatedTimeHours: number;
+  riskLevel: "low" | "medium" | "high";
+  recommendation: string;
+  notes: string[];
+};
+
 const IDS = Array.from({ length: 20 }, (_, i) =>
   `img${String(i + 1).padStart(2, "0")}`
 );
@@ -23,13 +33,56 @@ export default function DemoDashboard() {
 
   const [selectedId, setSelectedId] = useState("img01");
   const [data, setData] = useState<DemoResult | null>(null);
+
+  const [advice, setAdvice] = useState<RepairAdvice | null>(null);
+  const [adviceLoading, setAdviceLoading] = useState(false);
+  const [adviceErr, setAdviceErr] = useState<string | null>(null);
+
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  const fetchAdvice = async (payload: {
+    defectId: string;
+    label: string;
+    confidence: number;
+  }) => {
+    setAdviceLoading(true);
+    setAdviceErr(null);
+    setAdvice(null);
+
+    try {
+      const aRes = await fetch("/api/repair-advice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify(payload),
+      });
+
+      const aJson = await aRes.json();
+
+      if (!aRes.ok) {
+        setAdvice(null);
+        setAdviceErr(aJson?.detail ? `${aJson.error}: ${aJson.detail}` : (aJson?.error || "Gemini call failed"));
+        return;
+      }
+
+      setAdvice(aJson);
+    } catch {
+      setAdvice(null);
+      setAdviceErr("Gemini server not reachable / API error");
+    } finally {
+      setAdviceLoading(false);
+    }
+  };
 
   const loadResult = async (id: string) => {
     setSelectedId(id);
     setLoading(true);
     setErr(null);
+
+    // Reset Gemini UI each time
+    setAdvice(null);
+    setAdviceErr(null);
 
     try {
       const res = await fetch(`/api/demo-result?id=${id}`, { cache: "no-store" });
@@ -42,6 +95,13 @@ export default function DemoDashboard() {
       }
 
       setData(json);
+
+      // Now call Gemini advice (doesn't affect the main result error)
+      await fetchAdvice({
+        defectId: json.defectId,
+        label: json.label,
+        confidence: json.confidence,
+      });
     } catch {
       setData(null);
       setErr("Server not reachable / API error");
@@ -50,7 +110,6 @@ export default function DemoDashboard() {
     }
   };
 
-  // Load first sample once
   useEffect(() => {
     loadResult("img01");
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -63,15 +122,12 @@ export default function DemoDashboard() {
         <div>
           <h1 style={styles.title}>NanoScan Demo Dashboard</h1>
           <p style={styles.subtitle}>
-            Select a sample PCB image to view saved AI output (demo mode).
+            Select a sample PCB image to view saved AI output + repair advice (Gemini).
           </p>
         </div>
 
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <button
-            onClick={() => router.push("/sample")}
-            style={styles.navBtn}
-          >
+          <button onClick={() => router.push("/upload")} style={styles.navBtn}>
             Go to Upload Page
           </button>
 
@@ -84,14 +140,11 @@ export default function DemoDashboard() {
         </div>
       </div>
 
-      {/* Body */}
       <div style={styles.body}>
         {/* Sidebar */}
         <aside style={styles.sidebar}>
           <h2 style={styles.sectionTitle}>Sample Inputs (20)</h2>
-          <p style={styles.sectionSubtitle}>
-            Click an image to view stored output.
-          </p>
+          <p style={styles.sectionSubtitle}>Click an image to view output.</p>
 
           <div style={styles.grid}>
             {IDS.map((id) => (
@@ -118,7 +171,7 @@ export default function DemoDashboard() {
           </div>
         </aside>
 
-        {/* Main Panel */}
+        {/* Main */}
         <main style={styles.main}>
           {loading && (
             <div style={styles.infoBox}>
@@ -140,9 +193,7 @@ export default function DemoDashboard() {
                 <div style={styles.card}>
                   <div style={styles.cardLabel}>Detected Defect</div>
                   <div style={styles.cardValueGreen}>{data.label}</div>
-                  <div style={styles.cardSmall}>
-                    Defect ID: {data.defectId}
-                  </div>
+                  <div style={styles.cardSmall}>Defect ID: {data.defectId}</div>
                 </div>
 
                 <div style={styles.card}>
@@ -184,12 +235,84 @@ export default function DemoDashboard() {
                   <div style={styles.meta}>
                     <div><b>Label:</b> {data.label}</div>
                     <div><b>Defect ID:</b> {data.defectId}</div>
-                    <div>
-                      <b>Confidence:</b>{" "}
-                      {Math.round(data.confidence * 100)}%
-                    </div>
+                    <div><b>Confidence:</b> {Math.round(data.confidence * 100)}%</div>
                   </div>
                 </div>
+              </div>
+
+              {/* Repair Advice */}
+              <div style={{ marginTop: 14 }}>
+                <div style={styles.sectionHeaderRow}>
+                  <h3 style={styles.sectionHeader}>Repair Advice (Gemini)</h3>
+
+                  <button
+                    style={styles.retryBtn}
+                    onClick={() => {
+                      if (!data) return;
+                      fetchAdvice({
+                        defectId: data.defectId,
+                        label: data.label,
+                        confidence: data.confidence,
+                      });
+                    }}
+                    disabled={adviceLoading}
+                  >
+                    {adviceLoading ? "Retrying..." : "Retry Gemini"}
+                  </button>
+                </div>
+
+                {adviceLoading && (
+                  <div style={styles.infoBox}>
+                    Generating repair advice using Gemini...
+                  </div>
+                )}
+
+                {adviceErr && (
+                  <div style={styles.errorBox}>
+                    <b>Gemini call failed:</b> {adviceErr}
+                    <div style={{ marginTop: 6, fontSize: 12, color: "#fecaca" }}>
+                      Tip: Check your <code>GEMINI_API_KEY</code> and your <code>/api/repair-advice</code> route logs.
+                    </div>
+                  </div>
+                )}
+
+                {advice && (
+                  <div style={styles.cardsRow}>
+                    <div style={styles.card}>
+                      <div style={styles.cardLabel}>Repairable</div>
+                      <div style={styles.cardValueGreen}>
+                        {advice.repairable ? "Yes" : "No"}
+                      </div>
+                      <div style={styles.cardSmall}>Risk: {advice.riskLevel}</div>
+                    </div>
+
+                    <div style={styles.card}>
+                      <div style={styles.cardLabel}>Worth Repairing</div>
+                      <div style={styles.cardValueYellow}>
+                        {advice.worthRepairing ? "Yes" : "No"}
+                      </div>
+                      <div style={styles.cardSmall}>Decision support</div>
+                    </div>
+
+                    <div style={styles.card}>
+                      <div style={styles.cardLabel}>Estimated Cost (INR)</div>
+                      <div style={styles.cardValueCyan}>₹{advice.estimatedCostINR}</div>
+                      <div style={styles.cardSmall}>~{advice.estimatedTimeHours} hrs</div>
+                    </div>
+
+                    <div style={{ ...styles.card, gridColumn: "1 / -1" }}>
+                      <div style={styles.cardLabel}>Recommendation</div>
+                      <div style={{ marginTop: 8, fontWeight: 800 }}>
+                        {advice.recommendation}
+                      </div>
+                      <ul style={styles.notesList}>
+                        {advice.notes.map((n, i) => (
+                          <li key={i}>{n}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           )}
@@ -217,6 +340,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   title: { fontSize: 22, fontWeight: 800, color: "#67e8f9", margin: 0 },
   subtitle: { fontSize: 13, color: "#9ca3af", marginTop: 6 },
+
   navBtn: {
     padding: "8px 14px",
     borderRadius: 10,
@@ -235,10 +359,36 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 700,
     cursor: "pointer",
   },
+
   body: { display: "grid", gridTemplateColumns: "320px 1fr" },
   sidebar: { padding: 14, borderRight: "1px solid #1f2937" },
+
   sectionTitle: { fontSize: 14, fontWeight: 700 },
   sectionSubtitle: { fontSize: 12, color: "#94a3b8" },
+
+  sectionHeaderRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 10,
+  },
+  sectionHeader: {
+    fontSize: 14,
+    fontWeight: 800,
+    margin: 0,
+    color: "#cbd5e1",
+  },
+  retryBtn: {
+    padding: "8px 12px",
+    borderRadius: 10,
+    border: "1px solid #334155",
+    background: "#0b1220",
+    color: "#e5e7eb",
+    fontWeight: 800,
+    cursor: "pointer",
+  },
+
   grid: {
     marginTop: 10,
     display: "grid",
@@ -259,12 +409,15 @@ const styles: Record<string, React.CSSProperties> = {
     overflow: "hidden",
   },
   thumbLabel: { marginTop: 6, fontSize: 12, textAlign: "center" },
+
   main: { padding: 18 },
+
   infoBox: {
     border: "1px solid #1f2937",
     padding: 14,
     borderRadius: 12,
     marginBottom: 10,
+    background: "#0b1220",
   },
   errorBox: {
     border: "1px solid #7f1d1d",
@@ -272,22 +425,28 @@ const styles: Record<string, React.CSSProperties> = {
     padding: 14,
     borderRadius: 12,
     marginBottom: 10,
+    color: "#fecaca",
   },
+
   cardsRow: {
     display: "grid",
     gridTemplateColumns: "repeat(3, 1fr)",
     gap: 12,
+    marginTop: 12,
   },
   card: {
     border: "1px solid #1f2937",
     padding: 14,
     borderRadius: 12,
+    background: "#0b1220",
   },
   cardLabel: { fontSize: 12, color: "#94a3b8" },
-  cardSmall: { fontSize: 12, color: "#9ca3af" },
-  cardValueCyan: { fontSize: 18, fontWeight: 800, color: "#67e8f9" },
-  cardValueGreen: { fontSize: 18, fontWeight: 800, color: "#86efac" },
-  cardValueYellow: { fontSize: 18, fontWeight: 800, color: "#fde047" },
+  cardSmall: { fontSize: 12, color: "#9ca3af", marginTop: 6 },
+
+  cardValueCyan: { fontSize: 18, fontWeight: 800, color: "#67e8f9", marginTop: 6 },
+  cardValueGreen: { fontSize: 18, fontWeight: 800, color: "#86efac", marginTop: 6 },
+  cardValueYellow: { fontSize: 18, fontWeight: 800, color: "#fde047", marginTop: 6 },
+
   imagesRow: {
     display: "grid",
     gridTemplateColumns: "1fr 1fr",
@@ -298,6 +457,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: "1px solid #1f2937",
     padding: 14,
     borderRadius: 12,
+    background: "#0b1220",
   },
   imageTitle: { fontSize: 13, fontWeight: 700, marginBottom: 8 },
   bigImageWrap: {
@@ -309,4 +469,11 @@ const styles: Record<string, React.CSSProperties> = {
     background: "#000",
   },
   meta: { marginTop: 10, fontSize: 13, lineHeight: 1.5 },
+
+  notesList: {
+    marginTop: 10,
+    color: "#9ca3af",
+    lineHeight: 1.6,
+    paddingLeft: 18,
+  },
 };
