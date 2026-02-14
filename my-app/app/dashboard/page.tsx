@@ -127,7 +127,7 @@ export default function DemoDashboard() {
         </div>
 
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <button onClick={() => router.push("/upload")} style={styles.navBtn}>
+          <button onClick={() => router.push("/sample")} style={styles.navBtn}>
             Go to Upload Page
           </button>
 
