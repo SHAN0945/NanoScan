@@ -40,4 +40,4 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 gcp-service-account.json
-my-app/nanoscan-e1209c30d9d9.json
+nanoscan-e1209c30d9d9.json
